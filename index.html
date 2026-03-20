@@ -620,6 +620,7 @@
         headers: {
           'Content-Type': 'application/json',
           'x-api-key': apiKey,
+          'Authorization': `Bearer ${apiKey}`,
           'anthropic-version': '2023-06-01',
           'anthropic-dangerous-direct-browser-access': 'true',
         },
@@ -674,8 +675,18 @@
 
     } catch (err) {
       typingEl?.remove();
-      showError(err.message || 'Lỗi kết nối. Vui lòng thử lại.');
-      console.error(err);
+      let msg = err.message || 'Lỗi không xác định.';
+      if (err instanceof TypeError && (msg.includes('fetch') || msg.includes('Failed'))) {
+        msg = 'CORS bị chặn hoặc mạng lỗi. MAVIS có thể chưa hỗ trợ direct browser access.';
+      } else if (msg.includes('401')) {
+        msg = 'API key không hợp lệ. Vào ⚙️ để đổi key.';
+      } else if (msg.includes('402')) {
+        msg = 'Hết quota. Đợi window reset hoặc nâng gói.';
+      } else if (msg.includes('429')) {
+        msg = 'Rate limit. Thử lại sau ít phút.';
+      }
+      showError(msg);
+      console.error('[MAVIS Error]', err);
     }
 
     isStreaming = false;
