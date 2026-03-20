@@ -2,210 +2,752 @@
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
-<title>MAVIS Chat Tool</title>
-
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MAVIS Chat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
-  body {
-    font-family: Arial;
-    background: #0f172a;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d0d0f;
+    --surface: #141417;
+    --surface2: #1c1c21;
+    --border: #2a2a32;
+    --border-glow: #3d3d52;
+    --text: #e8e8f0;
+    --text-muted: #6b6b80;
+    --text-dim: #3a3a4a;
+    --accent: #7c6af7;
+    --accent-soft: rgba(124, 106, 247, 0.12);
+    --accent-glow: rgba(124, 106, 247, 0.3);
+    --user-bg: #1e1c2e;
+    --user-border: #3d3860;
+    --ai-bg: #141417;
+    --green: #4ade80;
+    --red: #f87171;
   }
 
-  .chat-container {
-    width: 420px;
-    height: 650px;
-    background: #111827;
-    border-radius: 16px;
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    overflow: hidden;
+  }
+
+  /* Subtle noise texture overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+
+  #app {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    height: 100vh;
+    max-width: 800px;
+    margin: 0 auto;
+  }
+
+  /* ── Header ── */
+  header {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(180deg, rgba(124,106,247,0.04) 0%, transparent 100%);
+  }
+
+  .logo {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+
+  .logo-name {
+    font-family: 'Instrument Serif', serif;
+    font-size: 22px;
+    letter-spacing: 0.02em;
+    color: var(--text);
+  }
+
+  .logo-tag {
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    border: 1px solid var(--border);
+    padding: 2px 7px;
+    border-radius: 3px;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .model-badge {
+    font-size: 11px;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border: 1px solid rgba(124,106,247,0.25);
+    padding: 4px 10px;
+    border-radius: 20px;
+    letter-spacing: 0.05em;
+  }
+
+  .status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 6px var(--green);
+    animation: pulse-dot 2.5s ease-in-out infinite;
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; box-shadow: 0 0 6px var(--green); }
+    50% { opacity: 0.5; box-shadow: 0 0 2px var(--green); }
+  }
+
+  /* API Key Setup */
+  #setup-panel {
+    padding: 32px 24px;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    text-align: center;
   }
 
-  .header {
-    padding: 10px;
-    background: #1f2937;
-    color: white;
-    font-weight: bold;
+  #setup-panel.hidden { display: none; }
+
+  .setup-icon {
+    font-size: 40px;
+    opacity: 0.6;
   }
 
-  .api-box {
-    padding: 10px;
-    border-bottom: 1px solid #333;
+  .setup-title {
+    font-family: 'Instrument Serif', serif;
+    font-size: 20px;
+    color: var(--text);
   }
 
-  .api-box input {
+  .setup-desc {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.7;
+    max-width: 380px;
+  }
+
+  .key-input-row {
+    display: flex;
+    gap: 8px;
     width: 100%;
-    padding: 8px;
-    background: #0b1220;
-    border: 1px solid #333;
-    color: white;
-    border-radius: 6px;
+    max-width: 440px;
   }
 
-  .chat-box {
+  .key-input {
     flex: 1;
-    padding: 15px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+    letter-spacing: 0.03em;
+  }
+
+  .key-input:focus { border-color: var(--accent); }
+  .key-input::placeholder { color: var(--text-dim); }
+
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    letter-spacing: 0.05em;
+  }
+
+  .btn-primary:hover { background: #8f7ef9; box-shadow: 0 0 16px var(--accent-glow); }
+  .btn-primary:active { transform: scale(0.97); }
+
+  /* ── Messages ── */
+  #messages {
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    scroll-behavior: smooth;
+  }
+
+  #messages::-webkit-scrollbar { width: 4px; }
+  #messages::-webkit-scrollbar-track { background: transparent; }
+  #messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .msg {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    animation: msg-in 0.3s ease;
+  }
+
+  @keyframes msg-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .msg-role {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--text-dim);
+    padding-left: 2px;
+  }
+
+  .msg.user .msg-role { color: rgba(124,106,247,0.5); }
+
+  .msg-bubble {
+    padding: 14px 18px;
+    border-radius: 12px;
+    line-height: 1.75;
+    font-size: 14px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .msg.user .msg-bubble {
+    background: var(--user-bg);
+    border: 1px solid var(--user-border);
+    border-radius: 12px 12px 4px 12px;
+    color: #c5beff;
+  }
+
+  .msg.assistant .msg-bubble {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px 12px 12px 4px;
+    color: var(--text);
+  }
+
+  .msg.assistant .msg-bubble pre {
+    background: #0a0a0d;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 14px;
+    margin: 10px 0;
+    overflow-x: auto;
+    font-size: 13px;
+  }
+
+  .msg.assistant .msg-bubble code {
+    background: rgba(124,106,247,0.1);
+    color: #a89cff;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 13px;
+  }
+
+  .msg.assistant .msg-bubble pre code {
+    background: none;
+    color: #8899b8;
+    padding: 0;
+  }
+
+  /* Typing indicator */
+  .typing-bubble {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 14px 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px 12px 12px 4px;
+    width: fit-content;
+  }
+
+  .typing-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: bounce 1.2s ease-in-out infinite;
+  }
+
+  .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes bounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+    30% { transform: translateY(-6px); opacity: 1; }
+  }
+
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 12px;
+    color: var(--text-muted);
+    text-align: center;
+  }
+
+  .empty-state .icon { font-size: 36px; opacity: 0.3; }
+  .empty-state p { font-size: 13px; line-height: 1.7; max-width: 280px; }
+
+  /* ── Input area ── */
+  footer {
+    padding: 16px 24px 20px;
+    border-top: 1px solid var(--border);
+    background: linear-gradient(0deg, rgba(13,13,15,0.95) 0%, transparent 100%);
+  }
+
+  .input-wrapper {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 12px;
+    transition: border-color 0.2s;
+  }
+
+  .input-wrapper:focus-within {
+    border-color: var(--border-glow);
+    box-shadow: 0 0 0 1px rgba(124,106,247,0.15);
+  }
+
+  #user-input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    resize: none;
+    max-height: 160px;
     overflow-y: auto;
   }
 
-  .msg {
-    margin: 10px 0;
-    max-width: 80%;
-    padding: 10px 12px;
-    border-radius: 10px;
-    line-height: 1.4;
-  }
+  #user-input::placeholder { color: var(--text-dim); }
+  #user-input::-webkit-scrollbar { width: 3px; }
+  #user-input::-webkit-scrollbar-thumb { background: var(--border); }
 
-  .user {
-    background: #2563eb;
-    color: white;
-    margin-left: auto;
-  }
-
-  .bot {
-    background: #374151;
-    color: white;
-    margin-right: auto;
-  }
-
-  .input-area {
+  #send-btn {
+    background: var(--accent);
+    border: none;
+    border-radius: 8px;
+    width: 36px;
+    height: 36px;
     display: flex;
-    border-top: 1px solid #333;
-  }
-
-  .input-area input {
-    flex: 1;
-    padding: 12px;
-    border: none;
-    outline: none;
-    background: #111827;
-    color: white;
-  }
-
-  button {
-    padding: 12px 16px;
-    border: none;
-    background: #2563eb;
-    color: white;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    align-self: flex-end;
   }
 
-  button:hover {
-    background: #1d4ed8;
+  #send-btn:hover { background: #8f7ef9; box-shadow: 0 0 12px var(--accent-glow); }
+  #send-btn:active { transform: scale(0.93); }
+  #send-btn:disabled { background: var(--surface); cursor: not-allowed; box-shadow: none; }
+  #send-btn svg { pointer-events: none; }
+
+  .footer-hint {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-align: center;
+    margin-top: 10px;
+    letter-spacing: 0.05em;
   }
+
+  .footer-hint span { color: var(--text-muted); }
+
+  /* Error toast */
+  #error-toast {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%) translateY(10px);
+    background: rgba(248,113,113,0.12);
+    border: 1px solid rgba(248,113,113,0.3);
+    color: var(--red);
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.3s;
+    z-index: 99;
+    max-width: 420px;
+    text-align: center;
+  }
+
+  #error-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* Settings gear */
+  .btn-icon {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: all 0.2s;
+  }
+
+  .btn-icon:hover { border-color: var(--border-glow); color: var(--text); }
+
+  /* Clear chat */
+  #clear-btn {
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: 'DM Mono', monospace;
+    padding: 2px 6px;
+    transition: color 0.2s;
+  }
+
+  #clear-btn:hover { color: var(--red); }
 </style>
 </head>
-
 <body>
+<div id="app">
 
-<div class="chat-container">
-  <div class="header">🤖 MAVIS Chat</div>
+  <header>
+    <div class="logo">
+      <span class="logo-name">MAVIS</span>
+      <span class="logo-tag">Chat</span>
+    </div>
+    <div class="header-right">
+      <span class="model-badge">claude-sonnet-4.6</span>
+      <div class="status-dot" id="status-dot" title="Connected"></div>
+      <button class="btn-icon" id="settings-btn" title="Cài đặt API key">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+      <button id="clear-btn">xoá</button>
+    </div>
+  </header>
 
-  <div class="api-box">
-    <input id="apiKey" placeholder="Nhập API key (mavis-xxxx)" />
+  <!-- Setup panel -->
+  <div id="setup-panel">
+    <div class="setup-icon">🔑</div>
+    <div class="setup-title">Nhập API Key của bạn</div>
+    <div class="setup-desc">
+      Lấy key từ dashboard MAVIS tại <strong>mavis.io.vn</strong>.<br>
+      Key sẽ được lưu vào localStorage của trình duyệt.
+    </div>
+    <div class="key-input-row">
+      <input type="password" class="key-input" id="api-key-input" placeholder="mavis-your-key-here" />
+      <button class="btn-primary" id="save-key-btn">Lưu</button>
+    </div>
   </div>
 
-  <div id="chatBox" class="chat-box"></div>
-
-  <div class="input-area">
-    <input id="input" placeholder="Nhập tin nhắn..." />
-    <button onclick="send()">Gửi</button>
+  <!-- Chat messages -->
+  <div id="messages" style="display:none;">
+    <div class="empty-state" id="empty-state">
+      <div class="icon">◈</div>
+      <p>Bắt đầu cuộc trò chuyện.<br>Hỏi bất cứ điều gì bạn muốn.</p>
+    </div>
   </div>
+
+  <footer id="chat-footer" style="display:none;">
+    <div class="input-wrapper">
+      <textarea id="user-input" rows="1" placeholder="Nhập tin nhắn... (Shift+Enter xuống dòng)"></textarea>
+      <button id="send-btn">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+      </button>
+    </div>
+    <div class="footer-hint">
+      <span>Enter</span> gửi &nbsp;·&nbsp; <span>Shift+Enter</span> xuống dòng
+    </div>
+  </footer>
+
 </div>
 
+<div id="error-toast"></div>
+
 <script>
-const URL = "https://mavis.io.vn/v1/chat/completions";
+  const STORAGE_KEY = 'mavis_api_key';
+  const BASE_URL = 'https://mavis.io.vn';
+  const MODEL = 'claude-sonnet-4.6';
 
-let messages = [
-  { role: "system", content: "You are a helpful assistant." }
-];
+  let conversationHistory = [];
+  let isStreaming = false;
 
-const chatBox = document.getElementById("chatBox");
-const input = document.getElementById("input");
-const apiInput = document.getElementById("apiKey");
+  // DOM
+  const setupPanel = document.getElementById('setup-panel');
+  const messagesEl = document.getElementById('messages');
+  const chatFooter = document.getElementById('chat-footer');
+  const apiKeyInput = document.getElementById('api-key-input');
+  const saveKeyBtn = document.getElementById('save-key-btn');
+  const userInput = document.getElementById('user-input');
+  const sendBtn = document.getElementById('send-btn');
+  const clearBtn = document.getElementById('clear-btn');
+  const settingsBtn = document.getElementById('settings-btn');
+  const emptyState = document.getElementById('empty-state');
+  const errorToast = document.getElementById('error-toast');
+  const statusDot = document.getElementById('status-dot');
 
-// 🔥 load API key đã lưu
-apiInput.value = localStorage.getItem("mavis_key") || "";
+  // Init
+  const savedKey = localStorage.getItem(STORAGE_KEY);
+  if (savedKey) showChat();
 
-// 🔥 lưu API key
-apiInput.addEventListener("input", function() {
-  localStorage.setItem("mavis_key", this.value);
-});
+  // Save key
+  saveKeyBtn.addEventListener('click', () => {
+    const key = apiKeyInput.value.trim();
+    if (!key) { showError('Vui lòng nhập API key.'); return; }
+    localStorage.setItem(STORAGE_KEY, key);
+    showChat();
+  });
 
-function addMsg(text, cls) {
-  const div = document.createElement("div");
-  div.className = "msg " + cls;
-  div.innerText = text;
-  chatBox.appendChild(div);
-  chatBox.scrollTop = chatBox.scrollHeight;
-  return div;
-}
+  apiKeyInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') saveKeyBtn.click();
+  });
 
-async function send() {
-  const apiKey = apiInput.value.trim();
-  const text = input.value.trim();
+  // Settings: show setup
+  settingsBtn.addEventListener('click', () => {
+    if (!setupPanel.classList.contains('hidden')) return;
+    setupPanel.classList.remove('hidden');
+    messagesEl.style.display = 'none';
+    chatFooter.style.display = 'none';
+    apiKeyInput.value = localStorage.getItem(STORAGE_KEY) || '';
+    apiKeyInput.focus();
+  });
 
-  if (!apiKey) {
-    alert("Nhập API key trước!");
-    return;
+  // Clear
+  clearBtn.addEventListener('click', () => {
+    if (!confirm('Xoá toàn bộ cuộc trò chuyện?')) return;
+    conversationHistory = [];
+    messagesEl.querySelectorAll('.msg').forEach(m => m.remove());
+    emptyState.style.display = 'flex';
+  });
+
+  function showChat() {
+    setupPanel.classList.add('hidden');
+    messagesEl.style.display = 'flex';
+    chatFooter.style.display = 'block';
+    userInput.focus();
   }
 
-  if (!text) return;
+  // Auto-resize textarea
+  userInput.addEventListener('input', () => {
+    userInput.style.height = 'auto';
+    userInput.style.height = Math.min(userInput.scrollHeight, 160) + 'px';
+  });
 
-  addMsg(text, "user");
-  input.value = "";
+  // Send on Enter
+  userInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (!isStreaming) sendMessage();
+    }
+  });
 
-  messages.push({ role: "user", content: text });
+  sendBtn.addEventListener('click', () => {
+    if (!isStreaming) sendMessage();
+  });
 
-  const loading = addMsg("...", "bot");
+  async function sendMessage() {
+    const text = userInput.value.trim();
+    if (!text) return;
 
-  try {
-    const res = await fetch(URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer " + apiKey
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4.6",
-        messages: messages,
-        temperature: 0.7
-      })
-    });
+    const apiKey = localStorage.getItem(STORAGE_KEY);
+    if (!apiKey) { showChat(); return; }
 
-    const data = await res.json();
+    // Add user message
+    emptyState.style.display = 'none';
+    appendMessage('user', text);
+    conversationHistory.push({ role: 'user', content: text });
 
-    if (!data.choices) {
-      loading.innerText = "API lỗi hoặc key sai!";
-      console.log(data);
-      return;
+    userInput.value = '';
+    userInput.style.height = 'auto';
+    sendBtn.disabled = true;
+    isStreaming = true;
+    statusDot.style.background = '#f59e0b';
+    statusDot.style.boxShadow = '0 0 6px #f59e0b';
+
+    // Typing indicator
+    const typingEl = appendTyping();
+
+    try {
+      const response = await fetch(`${BASE_URL}/v1/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: MODEL,
+          max_tokens: 4096,
+          messages: conversationHistory,
+          stream: true,
+        })
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error?.message || `HTTP ${response.status}`);
+      }
+
+      typingEl.remove();
+
+      // Parse SSE stream
+      const assistantMsg = appendMessage('assistant', '');
+      const bubble = assistantMsg.querySelector('.msg-bubble');
+      let fullText = '';
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = line.slice(6).trim();
+          if (data === '[DONE]') continue;
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.type === 'content_block_delta' && parsed.delta?.type === 'text_delta') {
+              fullText += parsed.delta.text;
+              bubble.innerHTML = formatMessage(fullText);
+              scrollToBottom();
+            }
+          } catch {}
+        }
+      }
+
+      conversationHistory.push({ role: 'assistant', content: fullText });
+
+    } catch (err) {
+      typingEl?.remove();
+      showError(err.message || 'Lỗi kết nối. Vui lòng thử lại.');
+      console.error(err);
     }
 
-    const reply = data.choices[0].message.content;
-
-    loading.innerText = reply;
-    messages.push({ role: "assistant", content: reply });
-
-    // 🔥 tránh tốn tiền
-    if (messages.length > 12) {
-      messages.splice(1, 2);
-    }
-
-  } catch (e) {
-    loading.innerText = "Lỗi kết nối!";
-    console.error(e);
+    isStreaming = false;
+    sendBtn.disabled = false;
+    statusDot.style.background = 'var(--green)';
+    statusDot.style.boxShadow = '0 0 6px var(--green)';
+    userInput.focus();
   }
-}
 
-// enter để gửi
-input.addEventListener("keypress", function(e) {
-  if (e.key === "Enter") send();
-});
+  function appendMessage(role, text) {
+    const div = document.createElement('div');
+    div.className = `msg ${role}`;
+    div.innerHTML = `
+      <span class="msg-role">${role === 'user' ? '▸ bạn' : '◈ mavis'}</span>
+      <div class="msg-bubble">${role === 'assistant' ? formatMessage(text) : escapeHtml(text)}</div>
+    `;
+    messagesEl.appendChild(div);
+    scrollToBottom();
+    return div;
+  }
+
+  function appendTyping() {
+    const div = document.createElement('div');
+    div.className = 'msg assistant';
+    div.innerHTML = `
+      <span class="msg-role">◈ mavis</span>
+      <div class="typing-bubble">
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+      </div>
+    `;
+    messagesEl.appendChild(div);
+    scrollToBottom();
+    return div;
+  }
+
+  function formatMessage(text) {
+    // Code blocks
+    text = text.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) =>
+      `<pre><code>${escapeHtml(code.trim())}</code></pre>`
+    );
+    // Inline code
+    text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+    // Bold
+    text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    // Italic
+    text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
+    // Newlines
+    text = text.replace(/\n/g, '<br>');
+    return text;
+  }
+
+  function escapeHtml(str) {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function scrollToBottom() {
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  let toastTimer;
+  function showError(msg) {
+    errorToast.textContent = msg;
+    errorToast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => errorToast.classList.remove('show'), 4000);
+  }
 </script>
-
 </body>
 </html>
