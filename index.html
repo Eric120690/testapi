@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>MAVIS Chat Tool</title>
+
+<style>
+  body {
+    font-family: Arial;
+    background: #0f172a;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+  }
+
+  .chat-container {
+    width: 420px;
+    height: 650px;
+    background: #111827;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+  }
+
+  .header {
+    padding: 10px;
+    background: #1f2937;
+    color: white;
+    font-weight: bold;
+  }
+
+  .api-box {
+    padding: 10px;
+    border-bottom: 1px solid #333;
+  }
+
+  .api-box input {
+    width: 100%;
+    padding: 8px;
+    background: #0b1220;
+    border: 1px solid #333;
+    color: white;
+    border-radius: 6px;
+  }
+
+  .chat-box {
+    flex: 1;
+    padding: 15px;
+    overflow-y: auto;
+  }
+
+  .msg {
+    margin: 10px 0;
+    max-width: 80%;
+    padding: 10px 12px;
+    border-radius: 10px;
+    line-height: 1.4;
+  }
+
+  .user {
+    background: #2563eb;
+    color: white;
+    margin-left: auto;
+  }
+
+  .bot {
+    background: #374151;
+    color: white;
+    margin-right: auto;
+  }
+
+  .input-area {
+    display: flex;
+    border-top: 1px solid #333;
+  }
+
+  .input-area input {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    outline: none;
+    background: #111827;
+    color: white;
+  }
+
+  button {
+    padding: 12px 16px;
+    border: none;
+    background: #2563eb;
+    color: white;
+    cursor: pointer;
+  }
+
+  button:hover {
+    background: #1d4ed8;
+  }
+</style>
+</head>
+
+<body>
+
+<div class="chat-container">
+  <div class="header">🤖 MAVIS Chat</div>
+
+  <div class="api-box">
+    <input id="apiKey" placeholder="Nhập API key (mavis-xxxx)" />
+  </div>
+
+  <div id="chatBox" class="chat-box"></div>
+
+  <div class="input-area">
+    <input id="input" placeholder="Nhập tin nhắn..." />
+    <button onclick="send()">Gửi</button>
+  </div>
+</div>
+
+<script>
+const URL = "https://mavis.io.vn/v1/chat/completions";
+
+let messages = [
+  { role: "system", content: "You are a helpful assistant." }
+];
+
+const chatBox = document.getElementById("chatBox");
+const input = document.getElementById("input");
+const apiInput = document.getElementById("apiKey");
+
+// 🔥 load API key đã lưu
+apiInput.value = localStorage.getItem("mavis_key") || "";
+
+// 🔥 lưu API key
+apiInput.addEventListener("input", function() {
+  localStorage.setItem("mavis_key", this.value);
+});
+
+function addMsg(text, cls) {
+  const div = document.createElement("div");
+  div.className = "msg " + cls;
+  div.innerText = text;
+  chatBox.appendChild(div);
+  chatBox.scrollTop = chatBox.scrollHeight;
+  return div;
+}
+
+async function send() {
+  const apiKey = apiInput.value.trim();
+  const text = input.value.trim();
+
+  if (!apiKey) {
+    alert("Nhập API key trước!");
+    return;
+  }
+
+  if (!text) return;
+
+  addMsg(text, "user");
+  input.value = "";
+
+  messages.push({ role: "user", content: text });
+
+  const loading = addMsg("...", "bot");
+
+  try {
+    const res = await fetch(URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + apiKey
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4.6",
+        messages: messages,
+        temperature: 0.7
+      })
+    });
+
+    const data = await res.json();
+
+    if (!data.choices) {
+      loading.innerText = "API lỗi hoặc key sai!";
+      console.log(data);
+      return;
+    }
+
+    const reply = data.choices[0].message.content;
+
+    loading.innerText = reply;
+    messages.push({ role: "assistant", content: reply });
+
+    // 🔥 tránh tốn tiền
+    if (messages.length > 12) {
+      messages.splice(1, 2);
+    }
+
+  } catch (e) {
+    loading.innerText = "Lỗi kết nối!";
+    console.error(e);
+  }
+}
+
+// enter để gửi
+input.addEventListener("keypress", function(e) {
+  if (e.key === "Enter") send();
+});
+</script>
+
+</body>
+</html>
